@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central de Ajustes</title>
+<style>
+  /* Aba "Central de Ajustes" dentro do Chatwoot. Segue o tema claro/escuro do computador. */
+  :root{
+    --bg:#FFFFFF; --txt:#1F2328; --suave:#646B73; --linha:#E2E5E9; --caixa:#F6F7F9; --azul:#2563EB; --ok:#15803D;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#151617; --txt:#ECEDEE; --suave:#9BA1A6; --linha:#2B2D30; --caixa:#1B1C1E; --azul:#3B82F6; --ok:#34D399; color-scheme:dark; }
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--bg);color:var(--txt);font:400 14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+  main{padding:22px 24px;display:flex;flex-direction:column;gap:14px;max-width:680px}
+  h1{margin:0;font-size:17px;font-weight:600}
+  p{margin:0;color:var(--suave)}
+  .ctx{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ctx div{background:var(--caixa);border:1px solid var(--linha);border-radius:8px;padding:9px 11px;min-width:0}
+  .ctx small{display:block;color:var(--suave);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .ctx span{overflow-wrap:anywhere}
+  .btn{display:inline-block;align-self:flex-start;background:var(--azul);color:#fff;text-decoration:none;font-weight:600;border-radius:8px;padding:11px 18px}
+  .btn:focus-visible{outline:2px solid var(--txt);outline-offset:2px}
+  .nota{font-size:12.5px}
+  @media (max-width:520px){ .ctx{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<main>
+  <h1>Registrar ajuste desta conversa</h1>
+
+  <!-- enquanto o Chatwoot não responde -->
+  <p id="carregando">Lendo a conversa aberta…</p>
+
+  <!-- quando o Chatwoot entrega o contexto -->
+  <section id="comConversa" hidden style="display:flex;flex-direction:column;gap:14px">
+    <p>O formulário abre em uma aba nova, já com esta conversa e o seu e-mail.</p>
+    <div class="ctx">
+      <div><small>Conversa</small><span id="cConversa"></span></div>
+      <div><small>Conta / inbox</small><span id="cConta"></span></div>
+      <div><small>Contato</small><span id="cContato"></span></div>
+      <div><small>Quem está registrando</small><span id="cAgente"></span></div>
+    </div>
+    <a id="abrir" class="btn" href="#" target="_blank" rel="noopener">Registrar ajuste desta conversa</a>
+    <p class="nota">Nada é gravado na conversa, e a IA não vê esse registro.</p>
+  </section>
+
+  <!-- aberta fora do Chatwoot, ou sem resposta -->
+  <section id="semConversa" hidden style="display:flex;flex-direction:column;gap:14px">
+    <p>Não foi possível ler a conversa. Abra esta aba de dentro de uma conversa do Chatwoot, ou use o formulário e cole o link manualmente.</p>
+    <a id="abrirVazio" class="btn" href="#" target="_blank" rel="noopener">Abrir o formulário</a>
+  </section>
+</main>
+
+<script>
+  // Endereço do app da web da Central de Ajustes (Implantar → Gerenciar implantações → URL do app da web)
+  var URL_FORM = 'https://script.google.com/macros/s/AKfycbwUO15BPz1zV2Y0G2THdUUyhCcDT_bOTDsfLfRyLwQqessllvB0Edo5om15JbtmEuGATw/exec';
+
+  var $ = function (id) { return document.getElementById(id); };
+  $('abrirVazio').href = URL_FORM;
+  var recebeu = false;
+
+  // O Chatwoot manda o contexto ao abrir a aba e sempre que pedimos
+  window.addEventListener('message', function (ev) {
+    var dado;
+    try { dado = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+    if (!dado || dado.event !== 'appContext' || !dado.data || !dado.data.conversation) return;
+    mostrar(dado.data);
+  });
+
+  function mostrar(d) {
+    var conv = d.conversation || {};
+    var contato = d.contact || (conv.meta && conv.meta.sender) || {};
+    var agente = d.currentAgent || {};
+    if (!conv.id || !conv.account_id) return;
+    recebeu = true;
+
+    $('cConversa').textContent = '#' + conv.id;
+    $('cConta').textContent = conv.account_id + (conv.inbox_id ? ' / ' + conv.inbox_id : '');
+    $('cContato').textContent = contato.name || 'Sem nome';
+    $('cAgente').textContent = agente.email || agente.name || 'Não identificado';
+
+    var p = new URLSearchParams({
+      conta: String(conv.account_id),
+      inbox: String(conv.inbox_id || ''),
+      conversa: String(conv.id),
+      email: String(agente.email || '')
+    });
+    $('abrir').href = URL_FORM + (URL_FORM.indexOf('?') > -1 ? '&' : '?') + p.toString();
+
+    $('carregando').hidden = true;
+    $('semConversa').hidden = true;
+    $('comConversa').hidden = false;
+  }
+
+  function pedir() { try { window.parent.postMessage('chatwoot-dashboard-app:fetch-info', '*'); } catch (e) {} }
+  pedir();
+  // ao trocar de conversa o Chatwoot pode reaproveitar a aba: pede de novo ao voltar o foco
+  window.addEventListener('focus', pedir);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) pedir(); });
+
+  setTimeout(function () {
+    if (recebeu) return;
+    $('carregando').hidden = true;
+    $('semConversa').hidden = false;
+  }, 4000);
+</script>
+</body>
+</html>
