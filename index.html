@@ -17,7 +17,7 @@
   [hidden]{display:none!important}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--txt);font:400 13px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;display:flex;flex-direction:column}
-  .faixa{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 14px;border-bottom:1px solid var(--linha);background:var(--caixa)}
+  .faixa{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:6px 14px;border-bottom:1px solid var(--linha);background:var(--caixa)}
   .faixa span{color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .faixa a{color:var(--azul);font-weight:600;text-decoration:none;white-space:nowrap}
   .faixa a:hover{text-decoration:underline}
@@ -32,7 +32,6 @@
 <body>
   <!-- faixa sempre visível: plano B se o formulário não carregar dentro do Chatwoot -->
   <div class="faixa" id="faixa" hidden>
-    <span id="resumo"></span>
     <a id="novaAba" href="#" target="_blank" rel="noopener">Não carregou? Abrir em nova aba ↗</a>
   </div>
 
@@ -65,6 +64,7 @@
   function carregar(d) {
     var conv = d.conversation || {};
     var agente = d.currentAgent || {};
+    var contato = d.contact || (conv.meta && conv.meta.sender) || {};
     if (!conv.id || !conv.account_id) return;
     var chave = conv.account_id + '/' + conv.id;
     if (chave === atual) return;
@@ -74,11 +74,11 @@
       conta: String(conv.account_id),
       inbox: String(conv.inbox_id || ''),
       conversa: String(conv.id),
-      email: String(agente.email || '')
+      email: String(agente.email || ''),
+      contato: String(contato.name || '')
     });
     var url = URL_FORM + '?' + p.toString();
 
-    $('resumo').textContent = 'Conversa #' + conv.id + (agente.email ? ' · ' + agente.email : '');
     $('novaAba').href = url;
     $('form').src = url;
 
